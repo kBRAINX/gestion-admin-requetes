@@ -1,6 +1,4 @@
-Voici le README complet pour votre projet :
 
-```markdown
 # Système d'Administration des Requêtes
 
 Un système complet de gestion des requêtes administratives avec réservation de ressources, développé avec Next.js et Firebase.

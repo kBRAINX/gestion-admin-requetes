@@ -76,7 +76,7 @@ src/
 
 ```bash
 # Cloner le repository
-git clone https://github.com/votre-username/hackverse-genesisSquad.git
+git clone [https://github.com/votre-username/hackverse-genesisSquad.git](https://github.com/kBRAINX/hackverse-genesisSquad.git)
 
 # Installer les dépendances
 cd hackverse-genesisSquad

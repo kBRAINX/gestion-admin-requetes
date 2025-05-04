@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { db, auth } from '@/lib/firebase';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { ROLES, PERMISSIONS, ROLE_PERMISSIONS } from '@/lib/auth-permissions';
 
 export default function SetupPage() {
   const router = useRouter();
@@ -86,7 +87,8 @@ export default function SetupPage() {
         id: userCredential.user.uid,
         email: adminEmail,
         displayName: adminName,
-        role: 'superadmin',
+        role: ROLES.SUPERADMIN,
+        permissions: ROLE_PERMISSIONS[ROLES.SUPERADMIN],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         isActive: true
@@ -117,7 +119,13 @@ export default function SetupPage() {
           description: 'Service principal d\'administration',
           headId: userCredential.user.uid,
           members: [userCredential.user.uid],
-          permissions: ['manage_all'],
+          permissions: [
+            PERMISSIONS.MANAGE_USERS,
+            PERMISSIONS.MANAGE_SERVICES,
+            PERMISSIONS.VIEW_ALL_REQUESTS,
+            PERMISSIONS.APPROVE_REQUESTS,
+            PERMISSIONS.GENERATE_REPORTS
+          ],
           canReceiveRequests: true,
           email: institutionEmail,
           isActive: true,
@@ -130,7 +138,28 @@ export default function SetupPage() {
           description: 'Gestion des dossiers étudiants et des notes',
           headId: '',
           members: [],
-          permissions: ['manage_students', 'manage_grades'],
+          permissions: [
+            PERMISSIONS.VIEW_ALL_REQUESTS,
+            PERMISSIONS.APPROVE_REQUESTS,
+            PERMISSIONS.MANAGE_RESOURCES
+          ],
+          canReceiveRequests: true,
+          email: '',
+          isActive: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        },
+        {
+          id: 'ressources',
+          name: 'Service des Ressources',
+          description: 'Gestion des salles et du matériel',
+          headId: '',
+          members: [],
+          permissions: [
+            PERMISSIONS.MANAGE_RESOURCES,
+            PERMISSIONS.MANAGE_RESERVATIONS,
+            PERMISSIONS.VIEW_BOOKINGS
+          ],
           canReceiveRequests: true,
           email: '',
           isActive: true,
@@ -144,44 +173,14 @@ export default function SetupPage() {
         await setDoc(doc(db, 'services', service.id), service);
       }
 
-      // Create basic request types from templates
+      // Create basic request types
       const defaultRequestTypes = [
         {
           id: 'publication-note',
           title: 'Demande de publication de note',
           category: 'scolarite',
           description: 'Demande de publication d\'une note manquante',
-          template: `
-            <div class="request-template">
-              <div class="header">
-                <div class="sender-info">
-                  <p>{{userName}}</p>
-                  <p>{{userMatricule}}</p>
-                  <p>{{userDepartment}}</p>
-                </div>
-                <div class="recipient-info">
-                  <p>À Monsieur le Responsable de UE {{courseCode}}</p>
-                </div>
-              </div>
-              <div class="subject">
-                <p>OBJET : Demande de publication de la note de CC(SN) {{courseCode}}</p>
-              </div>
-              <div class="content">
-                <p>Monsieur,</p>
-                <p>J'ai l'honneur de venir très respectueusement auprès de votre haute bienveillance solliciter une demande de publication de ma note de CC {{courseCode}}.</p>
-                <p>En effet, je suis étudiant(e) inscrit(e) en {{department}}, ayant assisté à tous les examens, après publication des notes de CC(SN), j'ai eu à vérifier avec ardeur, et constater que mon nom n'a pas été affiché, c'est pourquoi je m'incline auprès de vous, dans lequel vous avez le pouvoir de l'afficher, de plus, espérant que mon problème aura une solution.</p>
-                <p>Dans l'attente d'une suite favorable, Veuillez agréer Monsieur, mes expressions les plus profondes du cœur.</p>
-              </div>
-              <div class="attachments">
-                <p>PIÈCES JOINTES :</p>
-                <p>-Photocopie de reçu de paiement de pension.</p>
-              </div>
-              <div class="signature">
-                <p>{{date}}</p>
-                <p>Signature</p>
-              </div>
-            </div>
-          `,
+          template: '',
           requiredFields: ['courseCode', 'department'],
           destinationServices: ['scolarite'],
           finalDestination: 'scolarite',
@@ -197,37 +196,7 @@ export default function SetupPage() {
           title: 'Demande de rectification de matricule',
           category: 'scolarite',
           description: 'Correction d\'une erreur dans le numéro de matricule',
-          template: `
-            <div class="request-template">
-              <div class="header">
-                <div class="sender-info">
-                  <p>{{userName}}</p>
-                  <p>{{userMatricule}}</p>
-                  <p>{{userDepartment}}</p>
-                </div>
-                <div class="recipient-info">
-                  <p>À Monsieur le Responsable de UE {{courseCode}}</p>
-                </div>
-              </div>
-              <div class="subject">
-                <p>OBJET : Demande de rectification de mon matricule, au lieu de {{wrongMatricule}}, c'est {{correctMatricule}}</p>
-              </div>
-              <div class="content">
-                <p>Monsieur,</p>
-                <p>J'ai l'honneur de venir très respectueusement auprès de votre haute bienveillance solliciter une demande de rectification de mon matricule.</p>
-                <p>En effet, je suis étudiant(e) inscrit(e) en {{department}}, ayant assisté à tous les examens de CC, après publication des notes, j'ai eu à vérifier avec ardeur, et constater que mon matricule a été rédigé avec erreur, c'est pourquoi je m'incline auprès de vous, dans lequel vous avez le pouvoir de le rectifier, de plus, espérant que mon problème aura une solution.</p>
-                <p>Dans l'attente d'une suite favorable, Veuillez agréer Monsieur, mes expressions les plus profondes du cœur.</p>
-              </div>
-              <div class="attachments">
-                <p>PIÈCES JOINTES :</p>
-                <p>-Photocopie de reçu de paiement de pension.</p>
-              </div>
-              <div class="signature">
-                <p>{{date}}</p>
-                <p>Signature</p>
-              </div>
-            </div>
-          `,
+          template: '',
           requiredFields: ['courseCode', 'department', 'wrongMatricule', 'correctMatricule'],
           destinationServices: ['scolarite'],
           finalDestination: 'scolarite',
@@ -260,65 +229,97 @@ export default function SetupPage() {
   };
 
   if (setupComplete) {
-    return null; // Cette page ne sera pas rendue si l'installation est déjà complète
+    return null;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-lg">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Configuration du Système</h1>
-          <p className="text-gray-600">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-lg w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Configuration du Système</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
             {step === 1 && "Configurez votre institution"}
             {step === 2 && "Créez un compte super-administrateur"}
             {step === 3 && "Configuration terminée avec succès"}
           </p>
         </div>
 
+        {/* Progress Steps */}
+        <div className="flex justify-center items-center space-x-4 my-8">
+          {[1, 2, 3].map((num) => (
+            <div key={num} className="flex items-center">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  step === num
+                    ? 'bg-blue-600 text-white'
+                    : step > num
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                {step > num ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  num
+                )}
+              </div>
+              {num < 3 && (
+                <div
+                  className={`w-12 h-1 ${
+                    step > num ? 'bg-green-600' : 'bg-gray-200 dark:bg-gray-700'
+                  }`}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
         {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-200 rounded-md">
             {error}
           </div>
         )}
 
         {step === 1 && (
-          <form onSubmit={handleSubmitInstitution}>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2" htmlFor="institutionName">
+          <form onSubmit={handleSubmitInstitution} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Nom de l'institution <span className="text-red-500">*</span>
               </label>
               <input
-                id="institutionName"
                 type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm
+                           focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 value={institutionName}
                 onChange={(e) => setInstitutionName(e.target.value)}
                 required
               />
             </div>
 
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2" htmlFor="institutionEmail">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Email de contact <span className="text-red-500">*</span>
               </label>
               <input
-                id="institutionEmail"
                 type="email"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm
+                           focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 value={institutionEmail}
                 onChange={(e) => setInstitutionEmail(e.target.value)}
                 required
               />
             </div>
 
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2" htmlFor="institutionLogo">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Logo (URL)
               </label>
               <input
-                id="institutionLogo"
                 type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm
+                           focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 value={institutionLogo}
                 onChange={(e) => setInstitutionLogo(e.target.value)}
               />
@@ -326,7 +327,9 @@ export default function SetupPage() {
 
             <button
               type="submit"
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md
+                       shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700
+                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Suivant
             </button>
@@ -334,57 +337,57 @@ export default function SetupPage() {
         )}
 
         {step === 2 && (
-          <form onSubmit={handleSubmitAdmin}>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2" htmlFor="adminName">
+          <form onSubmit={handleSubmitAdmin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Nom complet <span className="text-red-500">*</span>
               </label>
               <input
-                id="adminName"
                 type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm
+                           focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 value={adminName}
                 onChange={(e) => setAdminName(e.target.value)}
                 required
               />
             </div>
 
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2" htmlFor="adminEmail">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Email <span className="text-red-500">*</span>
               </label>
               <input
-                id="adminEmail"
                 type="email"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm
+                           focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 value={adminEmail}
                 onChange={(e) => setAdminEmail(e.target.value)}
                 required
               />
             </div>
 
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2" htmlFor="adminPassword">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Mot de passe <span className="text-red-500">*</span>
               </label>
               <input
-                id="adminPassword"
                 type="password"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm
+                           focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
                 required
               />
             </div>
 
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2" htmlFor="confirmPassword">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Confirmer le mot de passe <span className="text-red-500">*</span>
               </label>
               <input
-                id="confirmPassword"
                 type="password"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm
+                           focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -393,7 +396,9 @@ export default function SetupPage() {
 
             <button
               type="submit"
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md
+                       shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700
+                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               disabled={loading}
             >
               {loading ? 'Configuration en cours...' : 'Terminer la configuration'}
@@ -404,17 +409,19 @@ export default function SetupPage() {
         {step === 3 && (
           <div className="text-center">
             <div className="mb-6 text-green-500">
-              <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+              <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-xl font-semibold mt-2">Configuration terminée avec succès !</p>
+              <p className="text-xl font-semibold mt-2 text-gray-900 dark:text-white">Configuration terminée avec succès !</p>
             </div>
-            <p className="mb-6 text-gray-600">
+            <p className="mb-6 text-gray-600 dark:text-gray-400">
               Vous pouvez maintenant accéder au système et commencer à l'utiliser.
             </p>
             <button
               onClick={handleComplete}
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md
+                       shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700
+                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Aller à la page d'accueil
             </button>

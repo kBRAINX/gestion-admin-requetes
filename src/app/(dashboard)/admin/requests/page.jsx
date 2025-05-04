@@ -4,26 +4,24 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import useAuth from '@/hooks/useAuth';
 import { useRequests } from '@/hooks/useRequests';
-import { useTheme } from '@/contexts/ThemeContext';
+import { db } from '@/lib/firebase';
+import { collection, query, getDocs } from 'firebase/firestore';
+import { PERMISSIONS } from '@/lib/auth-permissions';
 import Card from '@/components/common/Card';
 import Table from '@/components/common/Table';
-import Modal from '@/components/common/Modal';
 import RequestDetailModal from '@/components/modals/RequestDetailModal';
-import Button from '@/components/common/Button';
-import Select from '@/components/common/Select';
 import Tabs from '@/components/common/Tabs';
-import { PERMISSIONS } from '@/lib/auth-permissions';
 
 export default function AdminRequestsPage() {
   const router = useRouter();
   const { user, hasPermission } = useAuth();
   const { requests, loading, processRequest } = useRequests();
-  const { colors, isDarkMode } = useTheme();
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [currentTab, setCurrentTab] = useState('pending');
+  const [currentTab, setCurrentTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [services, setServices] = useState([]);
 
   useEffect(() => {
     if (!user) {
@@ -32,11 +30,25 @@ export default function AdminRequestsPage() {
     }
 
     if (!hasPermission(PERMISSIONS.VIEW_ALL_REQUESTS)) {
-      router.push('/dashboard');
+      router.push('/unauthorized');
+      return;
     }
+
+    fetchServices();
   }, [user, hasPermission, router]);
 
+  const fetchServices = async () => {
+    const servicesRef = collection(db, 'services');
+    const servicesSnapshot = await getDocs(servicesRef);
+    const servicesList = servicesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    setServices(servicesList);
+  };
+
   const tabs = [
+    { id: 'all', label: 'Toutes', count: requests.length },
     { id: 'pending', label: 'En attente', count: requests.filter(r => r.status === 'pending').length },
     { id: 'in_progress', label: 'En cours', count: requests.filter(r => r.status === 'in_progress').length },
     { id: 'approved', label: 'Approuvées', count: requests.filter(r => r.status === 'approved').length },
@@ -45,8 +57,9 @@ export default function AdminRequestsPage() {
 
   const categories = [
     { value: 'all', label: 'Toutes les catégories' },
-    { value: 'resources', label: 'Ressources' },
+    { value: 'scolarite', label: 'Scolarité' },
     { value: 'administrative', label: 'Administrative' },
+    { value: 'ressources', label: 'Ressources' },
     { value: 'maintenance', label: 'Maintenance' },
     { value: 'professor', label: 'Professeur' },
   ];
@@ -56,7 +69,7 @@ export default function AdminRequestsPage() {
       key: 'id',
       header: 'ID',
       render: (request) => (
-        <div className="font-mono text-sm" style={{ color: colors.text.secondary }}>
+        <div className="font-mono text-sm text-gray-600">
           #{request.id.slice(0, 8)}
         </div>
       ),
@@ -65,7 +78,7 @@ export default function AdminRequestsPage() {
       key: 'type',
       header: 'Type',
       render: (request) => (
-        <div style={{ color: colors.text.primary }}>
+        <div className="text-sm font-medium text-gray-900">
           {request.type}
         </div>
       ),
@@ -75,10 +88,10 @@ export default function AdminRequestsPage() {
       header: 'Demandeur',
       render: (request) => (
         <div>
-          <div className="font-medium" style={{ color: colors.text.primary }}>
+          <div className="text-sm font-medium text-gray-900">
             {request.userName}
           </div>
-          <div className="text-sm" style={{ color: colors.text.tertiary }}>
+          <div className="text-sm text-gray-500">
             {request.userEmail}
           </div>
         </div>
@@ -88,34 +101,38 @@ export default function AdminRequestsPage() {
       key: 'status',
       header: 'Statut',
       render: (request) => (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            request.status === 'approved'
-              ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
-              : request.status === 'pending'
-              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100'
-              : request.status === 'rejected'
-              ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-              : 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'
-          }`}
-        >
+        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+          request.status === 'approved'
+            ? 'bg-green-100 text-green-800'
+            : request.status === 'pending'
+            ? 'bg-yellow-100 text-yellow-800'
+            : request.status === 'rejected'
+            ? 'bg-red-100 text-red-800'
+            : 'bg-blue-100 text-blue-800'
+        }`}>
           {getStatusLabel(request.status)}
         </span>
       ),
     },
     {
+      key: 'currentService',
+      header: 'Service actuel',
+      render: (request) => {
+        const currentService = services.find(s => s.id === request.currentServiceId);
+        return currentService ? currentService.name : '-';
+      },
+    },
+    {
       key: 'priority',
       header: 'Priorité',
       render: (request) => (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            request.priority === 'high'
-              ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-              : request.priority === 'medium'
-              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100'
-              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
-          }`}
-        >
+        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+          request.priority === 'high'
+            ? 'bg-red-100 text-red-800'
+            : request.priority === 'medium'
+            ? 'bg-yellow-100 text-yellow-800'
+            : 'bg-gray-100 text-gray-800'
+        }`}>
           {getPriorityLabel(request.priority)}
         </span>
       ),
@@ -124,7 +141,7 @@ export default function AdminRequestsPage() {
       key: 'date',
       header: 'Date',
       render: (request) => (
-        <div style={{ color: colors.text.secondary }}>
+        <div className="text-sm text-gray-500">
           {new Date(request.createdAt).toLocaleDateString('fr-FR')}
         </div>
       ),
@@ -138,7 +155,6 @@ export default function AdminRequestsPage() {
             variant="secondary"
             size="sm"
             onClick={() => handleViewDetails(request)}
-            style={{ borderColor: colors.border }}
           >
             Détails
           </Button>
@@ -148,7 +164,7 @@ export default function AdminRequestsPage() {
                 variant="primary"
                 size="sm"
                 onClick={() => handleApprove(request.id)}
-                style={{ backgroundColor: '#10B981', color: '#FFFFFF' }}
+                className="bg-green-600 text-white"
               >
                 Approuver
               </Button>
@@ -186,12 +202,12 @@ export default function AdminRequestsPage() {
   };
 
   const filteredRequests = requests.filter(request => {
-    const matchesStatus = request.status === currentTab;
+    const matchesTab = currentTab === 'all' || request.status === currentTab;
     const matchesSearch = request.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           request.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           request.userEmail?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || request.category === selectedCategory;
-    return matchesStatus && matchesSearch && matchesCategory;
+    return matchesTab && matchesSearch && matchesCategory;
   });
 
   const handleViewDetails = (request) => {
@@ -212,15 +228,15 @@ export default function AdminRequestsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.background.primary }}>
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6" style={{ backgroundColor: colors.background.secondary }}>
-      <h1 className="text-3xl font-bold mb-6" style={{ color: colors.text.primary }}>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-gray-900">
         Gestion des Requêtes
       </h1>
 
@@ -228,34 +244,29 @@ export default function AdminRequestsPage() {
         tabs={tabs}
         activeTab={currentTab}
         onChange={setCurrentTab}
-        className="mb-6"
       />
 
-      <Card className="mb-6">
-        <div className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <input
-                type="text"
-                placeholder="Rechercher une requête..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full p-2 rounded border"
-                style={{
-                  backgroundColor: colors.background.primary,
-                  borderColor: colors.border,
-                  color: colors.text.primary,
-                }}
-              />
-            </div>
-            <div>
-              <Select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                options={categories}
-                className="w-full"
-              />
-            </div>
+      <Card>
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <input
+              type="text"
+              placeholder="Rechercher une requête..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            />
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            >
+              {categories.map(category => (
+                <option key={category.value} value={category.value}>
+                  {category.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <Table

@@ -1,82 +1,84 @@
-'use client';
+import { useContext, useCallback } from 'react';
+import AuthContext from '@/contexts/AuthContext';
+import { loginUser, registerUser, logoutUser, resetPassword, loginWithGoogle } from '@/services/authService';
 
-import { useState, useEffect } from 'react';
-import { auth, db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { ROLES, ROLE_PERMISSIONS } from '@/lib/auth-permissions';
-
+/**
+ * Custom hook to access auth context and wrap service calls
+ */
 export default function useAuth() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
-      try {
-        if (firebaseUser) {
-          // Récupérer les données utilisateur depuis Firestore
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email,
-              ...userData,
-            });
-          } else {
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email,
-              displayName: firebaseUser.displayName,
-              role: 'student', // Default role
-            });
-          }
-        } else {
-          setUser(null);
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    });
+  const { user, setUser, loading, setLoading, error, setError } = context;
 
-    return () => unsubscribe();
-  }, []);
-
-  const signOut = async () => {
+  const login = useCallback(async (email, password) => {
+    setError(null);
+    setLoading(true);
     try {
-      await auth.signOut();
+      const u = await loginUser(email, password);
+      setUser(u);
+      return u;
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Erreur de connexion');
+      throw err;
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [setError, setLoading, setUser]);
 
-  const hasPermission = (permission) => {
-    if (!user || !user.role) return false;
+  const loginGoogle = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const u = await loginWithGoogle();
+      setUser(u);
+      return u;
+    } catch (err) {
+      setError(err.message || 'Erreur Google');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [setError, setLoading, setUser]);
 
-    // SuperAdmin a toutes les permissions
-    if (user.role === ROLES.SUPERADMIN) return true;
+  const register = useCallback(async (email, password, displayName) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const u = await registerUser(email, password, displayName);
+      setUser(u);
+      return u;
+    } catch (err) {
+      setError(err.message || 'Erreur inscription');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [setError, setLoading, setUser]);
 
-    // Vérifie si l'utilisateur a la permission
-    const userPermissions = ROLE_PERMISSIONS[user.role] || [];
-    return userPermissions.includes(permission);
-  };
+  const logout = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await logoutUser();
+      setUser(null);
+    } catch (err) {
+      setError(err.message || 'Erreur déconnexion');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [setError, setLoading, setUser]);
 
-  const hasRole = (roles) => {
-    if (!user || !user.role) return false;
+  const forgotPassword = useCallback(async (email) => {
+    setError(null);
+    try {
+      await resetPassword(email);
+    } catch (err) {
+      setError(err.message || 'Erreur réinitialisation');
+      throw err;
+    }
+  }, [setError]);
 
-    // Accepte un seul rôle ou un tableau de rôles
-    const roleArray = Array.isArray(roles) ? roles : [roles];
-    return roleArray.includes(user.role);
-  };
-
-  return {
-    user,
-    loading,
-    error,
-    signOut,
-    hasPermission,
-    hasRole,
-  };
+  return { user, loading, error, login, loginWithGoogle: loginGoogle, register, logout, forgotPassword };
 }

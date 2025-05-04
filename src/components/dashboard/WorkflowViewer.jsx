@@ -1,11 +1,9 @@
 'use client';
 
-import { useTheme } from '@/contexts/ThemeContext';
+import React from 'react';
+import { CheckCircle, XCircle, Clock, ArrowRight, AlertCircle } from 'lucide-react';
 
 export default function WorkflowViewer({ request }) {
-  const { colors, isDarkMode } = useTheme();
-
-  // Exemple de workflow pour les requêtes
   const getWorkflowSteps = () => {
     if (!request?.workflow) return [];
 
@@ -22,17 +20,32 @@ export default function WorkflowViewer({ request }) {
     });
 
     // Étapes intermédiaires
-    if (request.workflow?.steps) {
-      request.workflow.steps.forEach((step, index) => {
+    if (request.workflowHistory?.length > 0) {
+      request.workflowHistory.forEach((step, index) => {
         allSteps.push({
           id: step.id,
-          label: step.label,
-          status: step.status,
+          label: step.action === 'transfer' ? `Transférée à ${step.serviceName}` :
+                 step.action === 'approve' ? `Approuvée par ${step.serviceName}` :
+                 step.action === 'reject' ? `Rejetée par ${step.serviceName}` :
+                 step.action,
+          status: 'completed',
           timestamp: step.timestamp,
-          user: step.processedBy,
+          user: step.userName,
           service: step.serviceName,
           comment: step.comment
         });
+      });
+    }
+
+    // Étape actuelle
+    if (request.status === 'in_progress' && request.currentServiceId) {
+      allSteps.push({
+        id: 'current',
+        label: `En attente de traitement`,
+        status: 'current',
+        timestamp: null,
+        service: request.currentServiceName || request.currentServiceId,
+        comment: 'En attente de traitement'
       });
     }
 
@@ -52,52 +65,22 @@ export default function WorkflowViewer({ request }) {
     return allSteps;
   };
 
-  const steps = getWorkflowSteps();
-
   const getStepIcon = (status) => {
     switch (status) {
       case 'completed':
-        return (
-          <div className="flex items-center justify-center w-6 h-6 rounded-full" style={{ backgroundColor: '#10B981' }}>
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-        );
-      case 'in_progress':
-        return (
-          <div className="flex items-center justify-center w-6 h-6 rounded-full" style={{ backgroundColor: colors.primary }}>
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        );
+        return <CheckCircle className="h-6 w-6 text-green-500" />;
+      case 'current':
+        return <Clock className="h-6 w-6 text-blue-500" />;
       case 'pending':
-        return (
-          <div className="flex items-center justify-center w-6 h-6 rounded-full" style={{ backgroundColor: '#F59E0B' }}>
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        );
+        return <AlertCircle className="h-6 w-6 text-yellow-500" />;
       case 'rejected':
-        return (
-          <div className="flex items-center justify-center w-6 h-6 rounded-full" style={{ backgroundColor: '#EF4444' }}>
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </div>
-        );
+        return <XCircle className="h-6 w-6 text-red-500" />;
       default:
-        return (
-          <div className="flex items-center justify-center w-6 h-6 rounded-full" style={{ backgroundColor: colors.text.tertiary }}>
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        );
+        return <div className="h-6 w-6 rounded-full border-2 border-gray-300" />;
     }
   };
+
+  const steps = getWorkflowSteps();
 
   return (
     <div className="flow-root">
@@ -107,8 +90,7 @@ export default function WorkflowViewer({ request }) {
             <div className="relative pb-8">
               {stepIdx !== steps.length - 1 ? (
                 <span
-                  className="absolute top-6 left-3 -ml-px h-full w-0.5"
-                  style={{ backgroundColor: colors.border }}
+                  className="absolute top-6 left-3 -ml-px h-full w-0.5 bg-gray-200"
                   aria-hidden="true"
                 />
               ) : null}
@@ -116,18 +98,18 @@ export default function WorkflowViewer({ request }) {
                 <div>
                   {getStepIcon(step.status)}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1 pt-1.5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium" style={{ color: colors.text.primary }}>
+                      <p className="text-sm font-medium text-gray-900">
                         {step.label}
                       </p>
-                      <p className="text-sm" style={{ color: colors.text.secondary }}>
+                      <p className="text-sm text-gray-500">
                         {step.service}
                       </p>
                     </div>
                     {step.timestamp && (
-                      <div className="text-sm text-right" style={{ color: colors.text.tertiary }}>
+                      <div className="text-sm text-gray-500">
                         {new Date(step.timestamp).toLocaleDateString('fr-FR', {
                           day: 'numeric',
                           month: 'short',
@@ -138,18 +120,12 @@ export default function WorkflowViewer({ request }) {
                     )}
                   </div>
                   {step.user && (
-                    <p className="mt-1 text-sm" style={{ color: colors.text.secondary }}>
+                    <p className="mt-1 text-sm text-gray-500">
                       Par: {step.user}
                     </p>
                   )}
                   {step.comment && (
-                    <div
-                      className="mt-2 p-3 rounded-lg text-sm"
-                      style={{
-                        backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-                        color: colors.text.secondary
-                      }}
-                    >
+                    <div className="mt-2 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
                       {step.comment}
                     </div>
                   )}

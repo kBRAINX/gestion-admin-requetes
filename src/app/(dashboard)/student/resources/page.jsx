@@ -7,7 +7,6 @@ import { useResources } from '@/hooks/useResources';
 import { useTheme } from '@/contexts/ThemeContext';
 import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
-import Modal from '@/components/common/Modal';
 import ResourceBookingModal from '@/components/modals/ResourceBookingModal';
 import { ROLES } from '@/lib/auth-permissions';
 

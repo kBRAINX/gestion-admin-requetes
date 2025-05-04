@@ -18,6 +18,7 @@
     "@react-pdf/renderer": "^4.3.0",
     "@tailwindcss/forms": "^0.5.10",
     "autoprefixer": "^10.4.21",
+    "chart.js": "^4.4.9",
     "cloudinary": "^2.6.0",
     "firebase": "^11.6.1",
     "fullcalendar": "^6.1.17",
@@ -28,6 +29,7 @@
     "next-themes": "^0.4.6",
     "postcss": "^8.5.3",
     "react": "^19.0.0",
+    "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.56.1",
     "react-pdf": "^9.2.1"

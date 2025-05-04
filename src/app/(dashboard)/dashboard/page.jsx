@@ -272,15 +272,15 @@ export default function DashboardPage() {
 function getStatusColor(status) {
   switch (status) {
     case 'approved':
-      return '#10B981'; // green
+      return '#10B981';
     case 'rejected':
-      return '#EF4444'; // red
+      return '#EF4444';
     case 'in_progress':
-      return '#3B82F6'; // blue
+      return '#3B82F6';
     case 'pending':
-      return '#F59E0B'; // yellow
+      return '#F59E0B';
     default:
-      return '#6B7280'; // gray
+      return '#6B7280';
   }
 }
 

@@ -22,7 +22,7 @@ export default function Button({
     },
     secondary: {
       base: 'bg-transparent border',
-      style: { borderColor: colors.border, color: colors.text.primary },
+      style: { borderColor: colors.border, color: colors.text.primaryDark },
       hoverStyle: { opacity: 0.8 },
     },
     danger: {

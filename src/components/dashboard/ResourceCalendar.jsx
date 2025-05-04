@@ -1,29 +1,28 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '@/contexts/ThemeContext';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import frLocale from '@fullcalendar/core/locales/fr';
 
 export default function ResourceCalendar({ resource, onTimeSlotClick }) {
-  const { colors, isDarkMode } = useTheme();
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
-    // Charger les réservations de la ressource
+    // Load resource bookings
     if (resource?.bookings) {
       const formattedEvents = resource.bookings.map(booking => ({
         id: booking.id,
         title: booking.userName,
         start: booking.startTime,
         end: booking.endTime,
-        backgroundColor: colors.primary,
-        borderColor: colors.primary,
+        backgroundColor: '#3B82F6',
+        borderColor: '#3B82F6',
       }));
       setEvents(formattedEvents);
     }
-  }, [resource, colors.primary]);
+  }, [resource]);
 
   const handleTimeSlotSelect = (info) => {
     const timeSlot = {
@@ -48,12 +47,6 @@ export default function ResourceCalendar({ resource, onTimeSlotClick }) {
     });
   };
 
-  const customButtonStyle = {
-    backgroundColor: colors.primary,
-    color: '#FFFFFF',
-    borderColor: colors.primary,
-  };
-
   const calendarOptions = {
     plugins: [timeGridPlugin, interactionPlugin],
     initialView: 'timeGridWeek',
@@ -69,76 +62,45 @@ export default function ResourceCalendar({ resource, onTimeSlotClick }) {
     selectable: true,
     selectMirror: true,
     dayMaxEvents: true,
-    weekends: false, // Masquer les weekends par défaut
+    weekends: false,
     events: events,
     select: handleTimeSlotSelect,
-    eventColor: colors.primary,
-    eventBorderColor: colors.primary,
+    eventColor: '#3B82F6',
+    eventBorderColor: '#3B82F6',
     eventTextColor: '#FFFFFF',
-    locale: 'fr',
+    locale: frLocale,
     buttonText: {
       today: "Aujourd'hui",
       month: 'Mois',
       week: 'Semaine',
       day: 'Jour'
     },
-    customButtons: {
-      myCustomButton: {
-        text: 'Personnalisé',
-        click: function() {
-          alert('clicked the custom button!');
-        }
-      }
-    },
   };
 
   return (
-    <div className="resource-calendar" style={{ color: colors.text.primary }}>
+    <div className="resource-calendar">
       <style jsx global>{`
         .fc {
-          --fc-page-bg-color: ${colors.background.primary};
-          --fc-neutral-bg-color: ${colors.background.secondary};
-          --fc-today-bg-color: ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(59, 130, 246, 0.1)'};
-          --fc-border-color: ${colors.border};
-          --fc-event-border-color: ${colors.primary};
-          --fc-event-bg-color: ${colors.primary};
-          --fc-event-text-color: #FFFFFF;
           font-size: 0.9rem;
         }
 
         .fc-button-primary {
-          background-color: ${colors.primary}!important;
-          border-color: ${colors.primary}!important;
+          background-color: #3B82F6!important;
+          border-color: #3B82F6!important;
         }
 
         .fc-button-primary:hover {
-          background-color: ${colors.primaryDark}!important;
-          border-color: ${colors.primaryDark}!important;
+          background-color: #2563EB!important;
+          border-color: #2563EB!important;
         }
 
         .fc-button-active {
-          background-color: ${colors.primaryDark}!important;
-          border-color: ${colors.primaryDark}!important;
-        }
-
-        .fc-col-header-cell {
-          color: ${colors.text.primary}!important;
-        }
-
-        .fc-timegrid-slot-label {
-          color: ${colors.text.secondary}!important;
-        }
-
-        .fc-daygrid-day-number {
-          color: ${colors.text.primary}!important;
-        }
-
-        .fc-timegrid-slot {
-          border-color: ${colors.border}!important;
+          background-color: #2563EB!important;
+          border-color: #2563EB!important;
         }
 
         .fc-highlight {
-          background: ${isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(59, 130, 246, 0.2)'}!important;
+          background: rgba(59, 130, 246, 0.2)!important;
         }
       `}</style>
 
@@ -147,22 +109,12 @@ export default function ResourceCalendar({ resource, onTimeSlotClick }) {
       {/* Legend */}
       <div className="mt-4 flex items-center space-x-4">
         <div className="flex items-center">
-          <div
-            className="w-4 h-4 rounded-sm mr-2"
-            style={{ backgroundColor: colors.primary }}
-          />
-          <span className="text-sm" style={{ color: colors.text.primary }}>
-            Réservé
-          </span>
+          <div className="w-4 h-4 rounded-sm mr-2 bg-blue-600" />
+          <span className="text-sm text-gray-700">Réservé</span>
         </div>
         <div className="flex items-center">
-          <div
-            className="w-4 h-4 rounded-sm mr-2 border"
-            style={{ borderColor: colors.border, backgroundColor: 'transparent' }}
-          />
-          <span className="text-sm" style={{ color: colors.text.primary }}>
-            Disponible
-          </span>
+          <div className="w-4 h-4 rounded-sm mr-2 border border-gray-300 bg-transparent" />
+          <span className="text-sm text-gray-700">Disponible</span>
         </div>
       </div>
     </div>

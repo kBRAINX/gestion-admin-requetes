@@ -3,20 +3,23 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import useAuth from '@/hooks/useAuth';
-import { useResources } from '@/hooks/useResources';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { PERMISSIONS } from '@/lib/auth-permissions';
 import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
 import Table from '@/components/common/Table';
 import Modal from '@/components/common/Modal';
-import ResourceForm from '@/components/forms/ResourceForm';
+import RequestTypeForm from '@/components/forms/RequestTypeForm';
 
-export default function AdminResourcesPage() {
+export default function AdminRequestTypesPage() {
   const router = useRouter();
   const { user, hasPermission } = useAuth();
-  const { resources, loading, createResource, updateResource, deleteResource } = useResources();
+  const [requestTypes, setRequestTypes] = useState([]);
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedResource, setSelectedResource] = useState(null);
+  const [selectedRequestType, setSelectedRequestType] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
@@ -25,95 +28,127 @@ export default function AdminResourcesPage() {
       router.push('/login');
       return;
     }
-  }, [user, hasPermission, router]);
+
+    // Fetch services
+    const fetchServices = async () => {
+      const servicesRef = collection(db, 'services');
+      const servicesSnapshot = await getDocs(servicesRef);
+      const servicesList = servicesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setServices(servicesList);
+    };
+
+    fetchServices();
+
+    // Listen to request types
+    const unsubscribe = onSnapshot(collection(db, 'requestTypes'), (snapshot) => {
+      const types = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setRequestTypes(types);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, router]);
 
   const categories = [
     { value: 'all', label: 'Toutes les catégories' },
-    { value: 'salle', label: 'Salles' },
-    { value: 'materiel', label: 'Matériel' },
-    { value: 'vehicule', label: 'Véhicules' },
-    { value: 'equipement', label: 'Équipements' },
+    { value: 'scolarite', label: 'Scolarité' },
+    { value: 'administrative', label: 'Administrative' },
+    { value: 'ressources', label: 'Ressources' },
+    { value: 'maintenance', label: 'Maintenance' },
+    { value: 'professor', label: 'Professeur' },
   ];
 
   const columns = [
     {
-      key: 'name',
-      header: 'Ressource',
-      render: (resource) => (
+      key: 'title',
+      header: 'Type de requête',
+      render: (type) => (
         <div className="flex items-center">
           <div className="h-10 w-10 flex-shrink-0">
             <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
               <span className="text-white font-medium">
-                {resource.name?.[0]?.toUpperCase()}
+                {type.title?.[0]?.toUpperCase()}
               </span>
             </div>
           </div>
           <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900">{resource.name}</div>
-            <div className="text-sm text-gray-500">{resource.code}</div>
+            <div className="text-sm font-medium text-gray-900">{type.title}</div>
+            <div className="text-sm text-gray-500">{type.category}</div>
           </div>
         </div>
       ),
     },
     {
-      key: 'category',
-      header: 'Catégorie',
-      render: (resource) => (
-        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-          {getCategoryLabel(resource.category)}
-        </span>
-      ),
-    },
-    {
-      key: 'capacity',
-      header: 'Capacité',
-      render: (resource) => (
-        <div className="text-sm text-gray-900">
-          {resource.capacity || '-'}
+      key: 'description',
+      header: 'Description',
+      render: (type) => (
+        <div className="text-sm text-gray-500 max-w-xs truncate">
+          {type.description}
         </div>
       ),
     },
     {
-      key: 'location',
-      header: 'Localisation',
-      render: (resource) => (
-        <div className="text-sm text-gray-500">
-          {resource.location || '-'}
+      key: 'services',
+      header: 'Services impliqués',
+      render: (type) => (
+        <div className="flex -space-x-1">
+          {type.destinationServices?.slice(0, 3).map((serviceId, index) => {
+            const service = services.find(s => s.id === serviceId);
+            return service ? (
+              <div
+                key={serviceId}
+                className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-500 text-white text-xs font-medium ring-2 ring-white"
+                title={service.name}
+              >
+                {service.name[0]}
+              </div>
+            ) : null;
+          })}
+          {type.destinationServices?.length > 3 && (
+            <div className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-gray-200 text-gray-600 text-xs font-medium ring-2 ring-white">
+              +{type.destinationServices.length - 3}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'estimatedProcessTime',
+      header: 'Temps estimé',
+      render: (type) => (
+        <div className="text-sm text-gray-900">
+          {type.estimatedProcessTime} jours
         </div>
       ),
     },
     {
       key: 'status',
       header: 'Statut',
-      render: (resource) => (
+      render: (type) => (
         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-          resource.status === 'available'
+          type.isActive
             ? 'bg-green-100 text-green-800'
-            : resource.status === 'maintenance'
-            ? 'bg-yellow-100 text-yellow-800'
             : 'bg-red-100 text-red-800'
         }`}>
-          {getStatusLabel(resource.status)}
+          {type.isActive ? 'Actif' : 'Inactif'}
         </span>
       ),
     },
     {
       key: 'actions',
       header: 'Actions',
-      render: (resource) => (
+      render: (type) => (
         <div className="flex space-x-2">
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.push(`/resources/${resource.id}`)}
-            className="border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            Voir
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => handleEdit(resource)}
+            onClick={() => handleEdit(type)}
             className="border-blue-600 text-blue-600 hover:bg-blue-50"
           >
             Modifier
@@ -121,7 +156,7 @@ export default function AdminResourcesPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => handleDelete(resource.id)}
+            onClick={() => handleDelete(type.id)}
             className="border-red-600 text-red-600 hover:bg-red-50"
           >
             Supprimer
@@ -131,47 +166,39 @@ export default function AdminResourcesPage() {
     },
   ];
 
-  const getCategoryLabel = (category) => {
-    const option = categories.find(cat => cat.value === category);
-    return option ? option.label : category;
-  };
-
-  const getStatusLabel = (status) => {
-    const statusLabels = {
-      available: 'Disponible',
-      reserved: 'Réservé',
-      maintenance: 'Maintenance',
-      unavailable: 'Indisponible',
-    };
-    return statusLabels[status] || status;
-  };
-
-  const filteredResources = resources.filter(resource => {
-    const matchesSearch = resource.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          resource.code?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || resource.category === selectedCategory;
+  const filteredRequestTypes = requestTypes.filter(type => {
+    const matchesSearch = type.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          type.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || type.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const handleEdit = (resource) => {
-    setSelectedResource(resource);
+  const handleEdit = (type) => {
+    setSelectedRequestType(type);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette ressource ?')) {
-      await deleteResource(id);
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce type de requête ?')) {
+      await deleteDoc(doc(db, 'requestTypes', id));
     }
   };
 
   const handleSubmit = async (data) => {
-    if (selectedResource) {
-      await updateResource(selectedResource.id, data);
+    if (selectedRequestType) {
+      await updateDoc(doc(db, 'requestTypes', selectedRequestType.id), {
+        ...data,
+        updatedAt: new Date(),
+      });
     } else {
-      await createResource(data);
+      await addDoc(collection(db, 'requestTypes'), {
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     }
     setIsModalOpen(false);
-    setSelectedResource(null);
+    setSelectedRequestType(null);
   };
 
   if (loading) {
@@ -200,15 +227,15 @@ export default function AdminResourcesPage() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Gestion des Ressources
+              Types de Requêtes
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              Gérez l'inventaire de vos ressources
+              Configurez les types de demandes possibles
             </p>
           </div>
           <Button
             onClick={() => {
-              setSelectedResource(null);
+              setSelectedRequestType(null);
               setIsModalOpen(true);
             }}
             className="bg-blue-600 text-white font-medium px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center"
@@ -216,7 +243,7 @@ export default function AdminResourcesPage() {
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            Nouvelle Ressource
+            Nouveau Type
           </Button>
         </div>
 
@@ -227,16 +254,16 @@ export default function AdminResourcesPage() {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Total Ressources
+                      Total Types
                     </dt>
                     <dd className="text-xl font-semibold text-gray-900">
-                      {resources.length}
+                      {requestTypes.length}
                     </dd>
                   </dl>
                 </div>
@@ -254,31 +281,10 @@ export default function AdminResourcesPage() {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Disponibles
+                      Types Actifs
                     </dt>
                     <dd className="text-xl font-semibold text-gray-900">
-                      {resources.filter(r => r.status === 'available').length}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Maintenance
-                    </dt>
-                    <dd className="text-xl font-semibold text-gray-900">
-                      {resources.filter(r => r.status === 'maintenance').length}
+                      {requestTypes.filter(t => t.isActive).length}
                     </dd>
                   </dl>
                 </div>
@@ -290,16 +296,39 @@ export default function AdminResourcesPage() {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <svg className="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Réservées
+                      Temps Moyen
                     </dt>
                     <dd className="text-xl font-semibold text-gray-900">
-                      {resources.filter(r => r.status === 'reserved').length}
+                      {requestTypes.length > 0
+                        ? Math.round(requestTypes.reduce((acc, curr) => acc + curr.estimatedProcessTime, 0) / requestTypes.length)
+                        : 0} jours
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Catégories
+                    </dt>
+                    <dd className="text-xl font-semibold text-gray-900">
+                      {categories.length - 1}
                     </dd>
                   </dl>
                 </div>
@@ -325,7 +354,7 @@ export default function AdminResourcesPage() {
                   </div>
                   <input
                     type="text"
-                    placeholder="Nom ou code de la ressource..."
+                    placeholder="Titre ou description..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
@@ -368,7 +397,7 @@ export default function AdminResourcesPage() {
             <div className="overflow-x-auto">
               <Table
                 columns={columns}
-                data={filteredResources}
+                data={filteredRequestTypes}
                 currentPage={1}
                 totalPages={1}
                 onPageChange={() => {}}
@@ -382,17 +411,18 @@ export default function AdminResourcesPage() {
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
-            setSelectedResource(null);
+            setSelectedRequestType(null);
           }}
-          title={selectedResource ? "Modifier la ressource" : "Créer une ressource"}
+          title={selectedRequestType ? "Modifier le type de requête" : "Créer un type de requête"}
           maxWidth="lg"
         >
-          <ResourceForm
-            initialData={selectedResource}
+          <RequestTypeForm
+            initialData={selectedRequestType}
+            services={services}
             onSubmit={handleSubmit}
             onCancel={() => {
               setIsModalOpen(false);
-              setSelectedResource(null);
+              setSelectedRequestType(null);
             }}
           />
         </Modal>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '@/contexts/ThemeContext';
 import useAuth from '@/hooks/useAuth';
 import { useRequests } from '@/hooks/useRequests';
 import Modal from '@/components/common/Modal';
@@ -14,7 +13,6 @@ export default function ResourceBookingModal({
   resource,
   selectedTimeSlot = null,
 }) {
-  const { colors } = useTheme();
   const { user } = useAuth();
   const { createRequest } = useRequests();
   const [loading, setLoading] = useState(false);
@@ -123,20 +121,20 @@ export default function ResourceBookingModal({
     >
       <form onSubmit={handleSubmit}>
         {error && (
-          <div className="mb-4 p-3 rounded-md" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+          <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700">
             {error}
           </div>
         )}
 
         {selectedTimeSlot && (
-          <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: colors.background.secondary }}>
-            <h3 className="text-sm font-medium mb-2" style={{ color: colors.text.primary }}>
+          <div className="mb-6 p-4 rounded-lg bg-gray-50">
+            <h3 className="text-sm font-medium text-gray-900 mb-2">
               Créneau sélectionné
             </h3>
-            <p className="text-sm" style={{ color: colors.text.secondary }}>
+            <p className="text-sm text-gray-600">
               Début : {formatDateTime(selectedTimeSlot.start)}
             </p>
-            <p className="text-sm" style={{ color: colors.text.secondary }}>
+            <p className="text-sm text-gray-600">
               Fin : {formatDateTime(selectedTimeSlot.end)}
             </p>
           </div>
@@ -163,7 +161,7 @@ export default function ResourceBookingModal({
         />
 
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1" style={{ color: colors.text.primary }}>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Notes supplémentaires
           </label>
           <textarea
@@ -171,12 +169,7 @@ export default function ResourceBookingModal({
             value={formData.notes}
             onChange={handleInputChange}
             rows="3"
-            className="w-full p-2 rounded-lg border"
-            style={{
-              backgroundColor: colors.background.primary,
-              borderColor: colors.border,
-              color: colors.text.primary,
-            }}
+            className="w-full p-2 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
             placeholder="Informations complémentaires (optionnel)..."
           />
         </div>
@@ -186,15 +179,13 @@ export default function ResourceBookingModal({
             type="button"
             variant="secondary"
             onClick={onClose}
-            style={{ borderColor: colors.border }}
           >
             Annuler
           </Button>
           <Button
             type="submit"
             disabled={loading}
-            style={{ backgroundColor: colors.primary }}
-            className="text-white"
+            className="bg-blue-600 text-white"
           >
             {loading ? 'Envoi en cours...' : 'Réserver'}
           </Button>
